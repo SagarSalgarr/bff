@@ -1,22 +1,39 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "src/global-services/prisma.service";
 
 @Injectable()
 export class QuestionsService {
   constructor(private prisma: PrismaService) {}
 
-  async fetchResponse(userQuestion: string): Promise<{ question: string; response: string; intent: string; schemeId: number; schemeName: string }> {
-    // Step 1: Check if the question matches a MainQuestion
+  async fetchResponse(
+    userQuestion: string,
+    schemeName: string
+  ): Promise<{
+    question: string;
+    response: string;
+    intent: string;
+    schemeId: number;
+    schemeName: string;
+  }> {
+    // Ensure that a scheme name is provided by the API caller.
+    if (!schemeName || !schemeName.trim()) {
+      throw new BadRequestException('Scheme name must be provided.');
+    }
+    
+    // Step 1: Look for a MainQuestion matching the question and scheme.
     const mainQuestion = await this.prisma.mainQuestion.findFirst({
-      where: { question: userQuestion },
-      select: { 
-        question: true, 
-        response: true, 
-        intent: true,         // Include intent
-        schemeId: true,       // Include schemeId
-        scheme: {             // Include related scheme name
-          select: { name: true }
-        }
+      where: {
+        question: userQuestion,
+        scheme: {
+          name: schemeName,
+        },
+      },
+      select: {
+        question: true,
+        response: true,
+        intent: true,
+        schemeId: true,
+        scheme: { select: { name: true } },
       },
     });
 
@@ -26,25 +43,30 @@ export class QuestionsService {
         response: mainQuestion.response,
         intent: mainQuestion.intent,
         schemeId: mainQuestion.schemeId,
-        schemeName: mainQuestion.scheme.name
+        schemeName: mainQuestion.scheme.name,
       };
     }
 
-    // Step 2: Check if the question matches a Variation
+    // Step 2: If no main question match, look for a Variation that matches.
     const variation = await this.prisma.variations.findFirst({
-      where: { variation: userQuestion },
-      select: { 
-        mainQuestion: { 
-          select: { 
-            question: true, 
-            response: true, 
-            intent: true,      // Include intent
-            schemeId: true,    // Include schemeId
-            scheme: {          // Include related scheme name
-              select: { name: true }
-            }
-          } 
-        } 
+      where: {
+        variation: userQuestion,
+        mainQuestion: {
+          scheme: {
+            name: schemeName,
+          },
+        },
+      },
+      select: {
+        mainQuestion: {
+          select: {
+            question: true,
+            response: true,
+            intent: true,
+            schemeId: true,
+            scheme: { select: { name: true } },
+          },
+        },
       },
     });
 
@@ -55,11 +77,11 @@ export class QuestionsService {
         response: mq.response,
         intent: mq.intent,
         schemeId: mq.schemeId,
-        schemeName: mq.scheme.name
+        schemeName: mq.scheme.name,
       };
     }
 
-    // Step 3: If no match, throw an error
-    throw new NotFoundException('No matching question found in the database.');
+    // Step 3: If no match is found, throw an error.
+    throw new NotFoundException("No matching question found in the database.");
   }
 }

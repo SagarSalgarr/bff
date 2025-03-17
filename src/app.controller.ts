@@ -24,6 +24,7 @@ import { ConversationService } from "./modules/conversation/conversation.service
 import { PrismaService } from "./global-services/prisma.service";
 import { MonitoringService } from "./modules/monitoring/monitoring.service";
 import { PromptServices } from "./xstate/prompt/prompt.service";
+import { SoilhealthcardService } from "./modules/soilhealthcard/soilhealthcard.service";
 import { Cache } from "cache-manager";
 import { HttpService } from '@nestjs/axios';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiHeader } from '@nestjs/swagger';
@@ -74,6 +75,7 @@ export class AppController {
   private conversationService: ConversationService;
   private prismaService: PrismaService;
   private promptService: PromptServices;
+  private soilHealthCardService: SoilhealthcardService;
   private logger: Logger;
 
   constructor(
@@ -84,11 +86,16 @@ export class AppController {
   ) {
     this.prismaService = new PrismaService();
     this.configService = new ConfigService();
+    this.soilHealthCardService = new SoilhealthcardService(
+      this.configService,
+      this.httpService,
+    );
     this.aiToolsService = new AiToolsService(
       this.configService,
       this.monitoringService,
       this.httpService,
-      this.cacheManager
+      this.cacheManager,
+      this.prismaService
     );
     this.conversationService = new ConversationService(
       this.prismaService,
@@ -98,7 +105,8 @@ export class AppController {
       this.prismaService,
       this.configService,
       this.aiToolsService,
-      this.monitoringService
+      this.monitoringService,
+      this.soilHealthCardService,
     );
     this.logger = new Logger(AppService.name);
   }
@@ -189,7 +197,7 @@ export class AppController {
       schemeName:
         promptDto.schemeName && promptDto.schemeName.trim() !== ""
           ? promptDto.schemeName
-          : "All Schemes",
+          : "PM Kisan",
     };
 
     let conversation = await this.conversationService.getConversationState(
@@ -204,7 +212,7 @@ export class AppController {
     if (promptDto.text) {
       type = "Text";
       let detectLanguageStartTime = Date.now();
-      if (/^[A-Za-z0-9\s.,!?@#$%^&*()_+-=;:'"\[\]{}|<>\/\\]+$/.test(userInput)) {
+      if (/^\d+$/.test(userInput)) {
         prompt.inputLanguage = Language.en;
       } else {
         // this.logger.log("IN ELSE....")
@@ -601,8 +609,14 @@ export class AppController {
 
     let msg = await this.prismaService.message.create({
       data: {
-        text: result?.text ? result?.text : result.error ? result.error : null,
-        // audio: result?.audio?.text ? result?.audio?.text : null,
+        text: (() => {
+          if (result && result.text) {
+            return typeof result.text === 'string'
+              ? result.text
+              : JSON.stringify(result.text);
+          }
+          return JSON.stringify(result);
+        })(),
         audio: null,
         type: "System",
         userId,
@@ -613,6 +627,20 @@ export class AppController {
     result["messageId"] = msg.id;
     result["messageType"] = messageType;
     result["conversationId"] = conversation.id;
+  
+    // Sanitize the HTML inside the result (if available) by removing newlines and extra spaces
+    if (
+      result &&
+      result.textInEnglish &&
+      result.textInEnglish.content &&
+      result.textInEnglish.content.html
+    ) {
+      result.textInEnglish.content.html = result.textInEnglish.content.html
+        .replace(/\n/g, ' ')       // Remove newlines
+        .replace(/\s\s+/g, ' ')     // Replace multiple spaces with a single space
+        .trim();
+    }
+  
     this.logger.log(
       "userId =", userId,
       "sessionId =", sessionId,

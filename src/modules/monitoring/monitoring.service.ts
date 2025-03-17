@@ -524,7 +524,7 @@ export class MonitoringService {
   }
 
   public async getResentOTPCount() {
-    let count = await this.untrainedQueryCounter.get();
+    let count = await this.resentOTPCounter.get();
     return count.values[0].value;
   }
 
@@ -740,6 +740,14 @@ export class MonitoringService {
   public incrementStage5Count() {
     this.stage5Counter.inc();
     this.cache.increment('stage5Count');
+  }
+
+  public incrementDeviceTypeCount(deviceType: string) {
+    // Track device type usage
+  }
+
+  public incrementPlatformCount(platform: string) {
+    // Track platform usage
   }
 
   public async onExit(): Promise<void> {

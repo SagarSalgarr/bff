@@ -26,6 +26,7 @@ model User {
   identifier   String?
   isVerified   Boolean  @default(false)
   messages     Message[]
+  devices      UserDevice[]
 }
 model Message {
   id              String   @id @default(uuid())
@@ -38,6 +39,7 @@ model Message {
   flowId          String
   reaction        Int       @default(0) @db.SmallInt 
   messageType     String?
+  content         Json?
 }
 model Metrics {
   id              Int @id @default(autoincrement())
@@ -106,4 +108,35 @@ model Summary {
   @@index([status])
   @@index([fileName])
   @@index([createdAt])
+}
+model UserDevice {
+  id          String   @id @default(uuid())
+  userId      String   @db.Uuid
+  user        User     @relation(fields: [userId], references: [id])
+  deviceType  String
+  platform    String
+  version     String?
+  model       String?
+  uniqueId    String?
+  lastUsed    DateTime @default(now())
+  createdAt   DateTime @default(now())
+  
+  @@unique([userId, uniqueId])
+}
+model ApiResponseTime {
+  id          String   @id @default(uuid())
+  apiName     String   // e.g., "Wadhwani"
+  endpoint    String   // The specific endpoint called
+  startTime   DateTime
+  endTime     DateTime
+  duration    Int      // Duration in milliseconds
+  userId      String   @db.Uuid
+  sessionId   String
+  success     Boolean  @default(true)
+  errorMsg    String?
+  createdAt   DateTime @default(now())
+
+  @@index([apiName])
+  @@index([createdAt])
+  @@index([duration])
 }

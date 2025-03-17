@@ -19,23 +19,28 @@ const path = require("path");
 const filePath = path.resolve(__dirname, "../../common/kisanPortalErrors.json");
 const PMKissanProtalErrors = require(filePath);
 import * as moment from "moment";
+import { SoilhealthcardService } from "src/modules/soilhealthcard/soilhealthcard.service";
+import { NotFoundException } from "@nestjs/common";
 
 
 @Injectable()
 export class PromptServices {
   private userService: UserService;
   private logger: Logger;
+  // private soilHealthCardService: SoilhealthcardService;
 
   constructor(
     private prismaService: PrismaService,
     private configService: ConfigService,
     private aiToolsService: AiToolsService,
     private monitoringService: MonitoringService,
+    private soilHealthCardService: SoilhealthcardService,
+    // private userService: UserService
   ) {
     this.userService = new UserService(
       this.prismaService,
       this.configService,
-      this.monitoringService
+      this.monitoringService,
     );
     this.logger = new Logger('prompt');
   }
@@ -48,6 +53,7 @@ export class PromptServices {
       this.logger.log("IN questionclassifier");
       try{
           let response: any = await this.aiToolsService.getResponseViaWadhwani(context.sessionId, context.userId, context.query, context.schemeName)
+          console.log("response is :", response)
           if (response.error) throw new Error(`${response.error}, please try again.`)
           let intent;
           if (response.query_intent == "Invalid") intent = "convo"
@@ -55,7 +61,7 @@ export class PromptServices {
           if (response.query_intent == "convo_ender") intent =  "convo"
           if (response.query_intent == "Installment Not Received") intent = "payment"
           else {
-              intent = "invalid"
+              intent = "SHC PDF"
           }
           return {
               class: intent,
@@ -66,11 +72,35 @@ export class PromptServices {
       }
   }
 
-  async logError(_, event) {
-    this.logger.log("logError");
-    this.logger.log(event.data);
-    return event.data;
-  }
+//   async questionClassifier (context) {
+//     this.logger.log("IN questionclassifier");
+//     try{
+//         let response: any = await this.aiToolsService.getResponseViaWadhwani(context.sessionId, context.userId, context.query, context.schemeName)
+      
+//         // if (response.error) throw new Error(`${response.error}, please try again.`)
+//         // let intent;
+//         // if (response.query_intent == "Invalid") intent = "convo"
+//         // if (response.query_intent == "convo_starter") intent =  "convo"
+//         // if (response.query_intent == "convo_ender") intent =  "convo"
+//         // if (response.query_intent == "Installment Not Received") intent = "payment"
+//         // else {
+//         //     intent = "invalid"
+//         // }
+//         let intent = "SHC PDF"
+//         return {
+//             class: intent,
+//             response: response.response
+//         }
+//     } catch (error){
+//         return Promise.reject(error)
+//     }
+// }
+
+//   async logError(_, event) {
+//     this.logger.log("logError");
+//     this.logger.log(event.data);
+//     return event.data;
+//   }
 
   async validateAadhaarNumber(context, event) {
     this.logger.log("validate aadhar");
@@ -154,6 +184,7 @@ export class PromptServices {
 
   async fetchUserData(context, event) {
     this.logger.log("Fetch user data");
+    this.logger.log("Current queryType:", context.queryType);
     const userIdentifier = `${context.userAadhaarNumber}${context.lastAadhaarDigits}`;
     let res;
     let type = "Mobile";
@@ -226,15 +257,16 @@ export class PromptServices {
       let config = {
         method: "post",
         maxBodyLength: Infinity,
-        url: `${this.configService.get(
-          "PM_KISAN_BASE_URL"
-        )}/ChatbotBeneficiaryStatus`,
+        // url: `${this.configService.get(
+        //   "PM_KISAN_BASE_URL"
+        // )}/ChatbotBeneficiaryStatus`,
+        url: "https://pmkisanstaging.amnex.co.in/pmkisanstaging/ChatbotserviceStaging.asmx/ChatbotBeneficiaryStatus",
         headers: {
           "Content-Type": "application/json",
         },
         data: data,
       };
-
+      console.log("In fetchUserData: ", config);
       let errors: any = await axios.request(config);
       errors = await errors.data;
       this.logger.log("related issues", errors);
@@ -242,7 +274,42 @@ export class PromptServices {
         errors.d.output,
         token
       );
-      errors = JSON.parse(decryptedData);
+      // errors = JSON.parse(decryptedData);
+      errors = {
+        "Rsponce": "True",
+        "Message": "Beneficiary Status Found",
+        "Markeddead": "",
+        "NameCorrection": "",
+        "IncomeTaxPayee": "Income Tax Payee",
+        "Not_Landowner": "Land Seeding, KYS",
+        "Internal_stopped": "",
+        "Benefit_Surrender": "",
+        "Institutional_Landholder": "",
+        "Former_Constitutional_PostHolder": "",
+        "Constitutional_PositionHolder": "",
+        "EmployeesofStateCentral": "",
+        "Superannuated_Retired_Pensioner": "",
+        "Registered_Professional": "",
+        "NRI": "",
+        "Beneficiary_doesnot_belongsto_ourstate": "",
+        "LandOwnershipnotbelong": "",
+        "alreadyreceivebenefit": "",
+        "farmerlandless": "",
+        "landuse_otherthan_agri": "",
+        "UntraceableBeneficiary": "",
+        "Underage": "",
+        "LandOwnerAfter": "",
+        "FTOnotprocessedAadhaarNotAuthenticated": "",
+        "FTOnotprocessedAadharisnotseeded": "",
+        "FTOnotprocessedBeneficiaryisunderrevalidationwithPFMS": "",
+        "UIDNEVERENABLEFORDBT": "",
+        "UIDisDisableforDBT": "",
+        "UIDisCANCELLEDBYUIDAI": "",
+        "Paymentfailurereason": "",
+        "NPCI_Seeding_Status": "NPCI Seeded",
+        "eKYC_Status": "Done"
+    };
+      console.log("Response from FetchUserdata: ", errors);
       if (errors.Rsponce == "True") {
         const queryType = typeof context.queryType === 'object' 
           ? context.queryType.class 
@@ -308,15 +375,117 @@ export class PromptServices {
     }
   }
 
+  async validatePhoneNumber(context: any, event: any) {
+    try {
+      // Add null checks
+      if (!event || !event.data) {
+        throw new Error('Invalid event data');
+      }
+
+      const result = await this.userService.validatePhoneNumber(event.data);
+      return result;
+    } catch (error) {
+      this.logger.error('Phone number validation failed:', error);
+      throw error;
+    }
+  }
+
+  async fetchSoilHealthCard(context: any, event: any) {
+    try {
+      const response = await this.soilHealthCardService.getSoilHealthCard(context.userPhone);
+      return response;
+    } catch (error) {
+      this.logger.error('Error fetching soil health card:', error);
+      throw new Error(error.message || 'Failed to fetch soil health card');
+    }
+  }
+
+  async fetchResponse(
+    userQuestion: string,
+    schemeName: string
+  ): Promise<{
+    question: string;
+    response: string;
+    intent: string;
+    schemeId: number;
+    schemeName: string;
+  }> {
+    // Step 1: Check if the question matches a MainQuestion for the provided scheme name
+    const mainQuestion = await this.prismaService.mainQuestion.findFirst({
+      where: {
+        question: userQuestion,
+        scheme: {
+          name: schemeName,
+        },
+      },
+      select: {
+        question: true,
+        response: true,
+        intent: true,
+        schemeId: true,
+        scheme: { select: { name: true } },
+      },
+    });
+
+    if (mainQuestion && mainQuestion.scheme) {
+      return {
+        question: mainQuestion.question,
+        response: mainQuestion.response,
+        intent: mainQuestion.intent,
+        schemeId: mainQuestion.schemeId,
+        schemeName: mainQuestion.scheme.name,
+      };
+    }
+
+    // Step 2: If no main question match, check if the question matches a Variation for the provided scheme
+    const variation = await this.prismaService.variations.findFirst({
+      where: {
+        variation: userQuestion,
+        mainQuestion: {
+          scheme: {
+            name: schemeName,
+          },
+        },
+      },
+      select: {
+        mainQuestion: {
+          select: {
+            question: true,
+            response: true,
+            intent: true,
+            schemeId: true,
+            scheme: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    if (variation && variation.mainQuestion && variation.mainQuestion.scheme) {
+      const mq = variation.mainQuestion;
+      return {
+        question: mq.question,
+        response: mq.response,
+        intent: mq.intent,
+        schemeId: mq.schemeId,
+        schemeName: mq.scheme.name,
+      };
+    }
+
+    // Step 3: If no match is found, throw an error
+    throw new NotFoundException("No matching question found in the database.");
+  }
+
   allFunctions() {
     return {
       getInput: this.getInput.bind(this),
       questionClassifier: this.questionClassifier.bind(this),
-      logError: this.logError.bind(this),
       validateAadhaarNumber: this.validateAadhaarNumber.bind(this),
       validateOTP: this.validateOTP.bind(this),
       fetchUserData: this.fetchUserData.bind(this),
       wadhwaniClassifier: this.wadhwaniClassifier.bind(this),
+      validatePhoneNumber: this.validatePhoneNumber.bind(this),
+      fetchSoilHealthCard: this.fetchSoilHealthCard.bind(this),
+      fetchResponse: this.fetchResponse.bind(this),
     };
   }
 

@@ -8,12 +8,14 @@ export class QuestionsController {
 
   @UseGuards(ApiKeyGuard)
   @Post('fetchdbresponse')
-  async fetchDbResponse(@Body() body: { question: string }) {
-    const { question } = body;
+  async fetchDbResponse(@Body() body: { question: string; schemeName: string }) {
+    const { question, schemeName } = body;
     if (!question) {
       throw new BadRequestException('The question field in the body is required.');
     }
-
-    return await this.questionsService.fetchResponse(question);
+    if (!schemeName || !schemeName.trim()) {
+      throw new BadRequestException('The scheme name must be provided.');
+    }
+    return await this.questionsService.fetchResponse(question, schemeName);
   }
 }

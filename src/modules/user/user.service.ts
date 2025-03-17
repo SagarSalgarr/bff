@@ -43,7 +43,8 @@ export class UserService {
       let config = {
         method: "post",
         maxBodyLength: Infinity,
-        url: `${this.configService.get("PM_KISAN_BASE_URL")}/chatbototp`,
+        // url: `${this.configService.get("PM_KISAN_BASE_URL")}/chatbototp`,
+        url: "https://pmkisanstaging.amnex.co.in/pmkisanstaging/ChatbotserviceStaging.asmx/ChatbotOTP",
         headers: {
           "Content-Type": "application/json",
         },
@@ -100,7 +101,7 @@ export class UserService {
       //   )}\"}`
       // );
       // const requestData = `{\"Types\":\"${type}\",\"Values\":\"${mobileNumber}\",\"Token\":\"${this.configService.get("PM_KISSAN_TOKEN")}\"}`;
-      let requestData = `{\"Types\":\"${type}\",\"Values\":\"${mobileNumber}\",\"OTP\":\"${otp}\",\"${this.configService.get("PM_KISSAN_TOKEN")}\"}`;
+      let requestData = `{\"Types\":\"${type}\",\"Values\":\"${mobileNumber}\",\"OTP\":\"${otp}\",\"Token\":,\"${this.configService.get("PM_KISSAN_TOKEN")}\"}`;
       console.log("Request data: ", requestData);
       let key = getUniqueKey();
       // const requestData = JSON.stringify({
@@ -124,9 +125,10 @@ export class UserService {
       let config = {
         method: "post",
         maxBodyLength: Infinity,
-        url: `${this.configService.get(
-          "PM_KISAN_BASE_URL"
-        )}/ChatbotOTPVerified`,
+        // url: `${this.configService.get(
+        //   "PM_KISAN_BASE_URL"
+        // )}/ChatbotOTPVerified`,
+        url: "https://pmkisanstaging.amnex.co.in/pmkisanstaging/ChatbotserviceStaging.asmx/ChatbotOTPVerified",
         headers: {
           "Content-Type": "application/json",
         },
@@ -201,9 +203,10 @@ export class UserService {
       let config = {
         method: "post",
         maxBodyLength: Infinity,
-        url: `${this.configService.get(
-          "PM_KISAN_BASE_URL"
-        )}/ChatbotUserDetails`,
+        // url: `${this.configService.get(
+        //   "PM_KISAN_BASE_URL"
+        // )}/ChatbotUserDetails`,
+        url: "https://pmkisanstaging.amnex.co.in/pmkisanstaging/ChatbotserviceStaging.asmx/ChatbotUserDetails",
         headers: {
           "Content-Type": "application/json",
         },
@@ -288,5 +291,16 @@ export class UserService {
     return this.prisma.$queryRawUnsafe(`
       SELECT * from "Message" where id = '${id}'
     `);
+  }
+
+  async validatePhoneNumber(mobileNumber: string): Promise<boolean> {
+    try {
+      // Basic phone number validation regex for Indian numbers
+      const phoneRegex = /^[6-9]\d{9}$/;
+      return phoneRegex.test(mobileNumber);
+    } catch (error) {
+      this.logger.error(`Phone validation failed for ${mobileNumber}:`, error);
+      return false;
+    }
   }
 }

@@ -3,6 +3,15 @@ export const promptGuards = {
 
   ifAudio: (_, event) => event.data.inputType == "Audio",
 
+  ifValidPhone: (_, event) => {
+    // Check if the validation was successful
+    return event.data === true;
+  },
+
+  ifSoilHealthCard: (context: any, event: any) => {
+    return event.data?.class === "SHC PDF";
+  },
+
   ifMultipleAadhaar: (_, event) =>
     event.data == "This mobile number taged with multiple records.",
 

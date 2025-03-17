@@ -120,6 +120,81 @@ export const botFlowMachine1: any = {
         },
       },
     },
+
+    // New states for Soil Health Card flow
+    askingSoilHealthPhone: {
+      on: {
+        USER_INPUT: {
+          target: "validateSoilHealthPhone",
+          actions: [
+            assign({
+              userPhone: (_, event) => event.data,
+              type: "",
+            }),
+          ],
+        },
+      },
+    },
+
+    validateSoilHealthPhone: {
+      invoke: {
+        src: "validatePhoneNumber",
+        onDone: [
+          {
+            cond: "ifValidPhone",
+            target: "fetchingSoilHealthCard",
+          },
+          {
+            target: "askingSoilHealthPhone",
+            actions: [
+              assign({
+                response: () => "Please enter a valid 10-digit mobile number.",
+                userPhone: "",
+                type: "pause",
+              }),
+            ],
+          },
+        ],
+        onError: {
+          target: "error",
+          actions: [
+            assign({
+              error: (_, event) => event.data.message,
+              type: "",
+            }),
+          ],
+        },
+      },
+    },
+
+    fetchingSoilHealthCard: {
+      invoke: {
+        src: "fetchSoilHealthCard",
+        onDone: {
+          target: "endFlow",
+          actions: [
+            assign({
+              response: (_, event) => event.data,
+              userPhone: "",
+              isSoilHealthCard: false,
+              type: "",
+            }),
+          ],
+        },
+        onError: {
+          target: "error",
+          actions: [
+            assign({
+              error: (_, event) => event.data.message,
+              userPhone: "",
+              isSoilHealthCard: false,
+              type: "",
+            }),
+          ],
+        },
+      },
+    },
+
     askingAadhaarNumber: {
       on: {
         USER_INPUT: {
@@ -416,6 +491,34 @@ export const botFlowMachine2: any = {
       invoke: {
         src: "getInput",
         onDone: [
+          // {
+          //   cond: "ifInValidScheme",
+          //   target: "endFlow",
+          //   actions: [
+          //     assign({
+          //       response: "Invalid Scheme, please send a valid scheme.",
+          //       type: "pause",
+          //     }),
+          //   ],
+          // },
+          {
+            cond: "ifAudio",
+            target: "confirmInput1",
+            actions: [
+              assign({
+                type: "pause",
+              }),
+            ],
+          },
+          {
+            cond: "ifAudio",
+            target: "confirmInput1",
+            actions: [
+              assign({
+                type: "pause",
+              }),
+            ],
+          },
           {
             cond: "ifAudio",
             target: "confirmInput1",
@@ -881,6 +984,9 @@ export const botFlowMachine3: any = {
     userId: "",
     isOTPVerified: false,
     isWadhwaniResponse: "false",
+    userPhone: "",
+    schemeName: "",
+    isSoilHealthCard: false
   },
   states: {
     checkStateAndJump: {
@@ -956,6 +1062,14 @@ export const botFlowMachine3: any = {
         {
           target: "endFlow",
           cond: (context) => context.currentState === "endFlow",
+        },
+        {
+          target: "askingSoilHealthPhone",
+          cond: (context) => context.currentState === "askingSoilHealthPhone",
+        },
+        {
+          target: "fetchingSoilHealthCard",
+          cond: (context) => context.currentState === "fetchingSoilHealthCard",
         },
       ],
     },
@@ -1052,6 +1166,18 @@ export const botFlowMachine3: any = {
       invoke: {
         src: "questionClassifier",
         onDone: [
+          {
+            cond: "ifSoilHealthCard",
+            target: "askingSoilHealthPhone",
+            actions: [
+              assign({
+                response: () => "Please enter your registered mobile number to fetch your Soil Health Card.",
+                queryType: (_, event) => event.data,
+                isSoilHealthCard: true,
+                type: "pause",
+              }),
+            ],
+          },
           {
             cond: "ifConvoStarterOrEnder",
             target: "endFlow",
@@ -1508,6 +1634,76 @@ export const botFlowMachine3: any = {
     },
     endFlow: {
       type: "final",
+    },
+    askingSoilHealthPhone: {
+      on: {
+        USER_INPUT: {
+          target: "validateSoilHealthPhone",
+          actions: [
+            assign({
+              userPhone: (_, event) => event.data,
+              type: "",
+            }),
+          ],
+        },
+      },
+    },
+    validateSoilHealthPhone: {
+      invoke: {
+        src: "validatePhoneNumber",
+        onDone: [
+          {
+            cond: "ifValidPhone",
+            target: "fetchingSoilHealthCard",
+          },
+          {
+            target: "askingSoilHealthPhone",
+            actions: [
+              assign({
+                response: () => "Please enter a valid 10-digit mobile number.",
+                userPhone: "",
+                type: "pause",
+              }),
+            ],
+          },
+        ],
+        onError: {
+          target: "error",
+          actions: [
+            assign({
+              error: (_, event) => event.data.message,
+              type: "",
+            }),
+          ],
+        },
+      },
+    },
+    fetchingSoilHealthCard: {
+      invoke: {
+        src: "fetchSoilHealthCard",
+        onDone: {
+          target: "endFlow",
+          actions: [
+            assign({
+              response: (_, event) => event.data,
+              userPhone: "",
+              isSoilHealthCard: false,
+              type: "",
+            }),
+          ],
+        },
+        onError: {
+          target: "error",
+          actions: [
+            assign({
+              error: (_, event) => event.data.message,
+              userPhone: "",
+              isSoilHealthCard: false,
+              type: "",
+            }),
+          ],
+        },
+      },
     },
   },
 };
